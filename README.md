@@ -13,6 +13,30 @@ leads, tournaments, and payment plans), so you can show it to a prospective club
 |---|---|---|
 | ![](docs/screenshots/leads.png) | ![](docs/screenshots/teams.png) | ![](docs/screenshots/signup.png) |
 
+## 🎨 Customize it for any club in 30 seconds
+
+Before a pitch meeting, click **🎨 Customize for a club** (dashboard, sidebar, or Settings) and paste
+the club's website. Dugout HQ reads the site and dresses the whole app in that club's brand:
+
+- **Name** from the site (`og:site_name`, structured data, or a cleaned-up page title)
+- **Logo** from the header image, structured data, or icons (picked by score)
+- **Colors** from the logo's pixels, snapped to the exact hex codes the site declares (theme-color, CSS),
+  then adjusted so text stays readable (WCAG 4.5:1)
+- **Banner photo** (the site's share image) used as header art on the dashboard and signup page
+- **Mascot** guessed from the name (Sharks 🦈, Hurricanes 🌪️, Thunder ⚡ …) and the contact email
+- **Team names**: demo teams become "*Tidewater Sharks 9U, 10U …*" across rosters, schedule, and messages
+
+You can adjust everything in a live preview before applying. No logo? Every club gets a generated
+shield crest in its colors with its initials.
+
+**Facebook or Instagram only?** Those sites block lookups. Switch to **From a logo or screenshot**
+and drop, choose, or paste (Ctrl/⌘+V) a screenshot of their logo or banner. This runs fully in the browser.
+
+**Pitch links:** after a website lookup, **🔗 Copy pitch link** gives you
+`https://your-app/#/?brand=their-site.com`. Whoever opens it sees the demo already in their colors.
+
+![Branded for a club](docs/screenshots/branded-dashboard.png)
+
 ## What's inside
 
 | Area | What it does |
@@ -42,9 +66,18 @@ npm test           # business-logic tests (age groups, payments, automations, ro
 npm run build      # static site in dist/
 ```
 
-The build is a static site that works on any host (GitHub Pages, Netlify, Vercel, S3).
-`.github/workflows/deploy.yml` publishes the demo to GitHub Pages on every push to `main`.
-To use it, turn on **Settings → Pages → Source: GitHub Actions** in the repo.
+### Deploying
+
+**Recommended: Vercel (free tier).** Import the repo at vercel.com. It detects Vite, serves `dist/`,
+and runs `api/brand.ts` as the serverless website-lookup endpoint. No configuration needed.
+
+**GitHub Pages** (`.github/workflows/deploy.yml`, enable *Settings → Pages → Source: GitHub Actions*)
+hosts static files only. Everything works except the website lookup: the wizard tells you this and
+offers logo upload instead. To get website lookup on Pages, deploy `api/brand.ts` anywhere (Vercel,
+Netlify, Cloudflare) and build with `VITE_BRAND_API=https://your-function-host/api/brand`.
+
+The lookup endpoint only fetches public http(s) addresses. It blocks localhost, private, and
+cloud-metadata IPs (re-checked on every redirect), caps download sizes, and times out after 9 seconds.
 
 ## How it's built
 
@@ -53,6 +86,9 @@ To use it, turn on **Settings → Pages → Source: GitHub Actions** in the repo
 - `src/lib/ops.ts`: pure business operations and automations, unit-tested in `src/lib/core.test.ts`
 - `src/lib/utils.ts`: baseball-age math, installment schedules, past-due logic, template merging
 - `src/lib/seed.ts`: the demo club (dates are relative to today, so it always looks live)
+- `src/lib/brand.ts`: palette extraction, theme picking with contrast fixes, team renaming (`applyBrand`)
+- `server/extract.ts` + `server/brandLookup.ts`: website → brand kit (name, logo, banner, colors), with SSRF protection
+- `api/brand.ts`: the serverless endpoint (also served by `npm run dev` / `npm run preview` via a Vite plugin)
 - `src/pages/*`: one file per screen
 
 ## Current limits (and the path to production)

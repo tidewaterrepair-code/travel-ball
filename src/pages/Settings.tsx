@@ -5,6 +5,8 @@ import { rolloverSeason } from '../lib/ops'
 import { ageGroupLabel, baseballAge, cx, download, recommendTeam } from '../lib/utils'
 import { Badge, Button, Card, CardHeader, Field, Input, Modal, PageHeader, Select, Textarea } from '../components/ui'
 import { celebrate, toast } from '../components/feedback'
+import { BrandWizard } from '../components/BrandWizard'
+import { ClubLogo } from '../components/ClubLogo'
 
 const MASCOTS = ['⚡', '⚾', '🦅', '🐻', '🦈', '🐍', '🔥', '🌪️', '🐝', '🦂', '🐺', '🏴‍☠️', '🦬', '🐊', '🚀', '⭐']
 const PALETTES: [string, string, string][] = [
@@ -25,6 +27,7 @@ export default function Settings() {
   const s = (p: Partial<OrgSettings>) => store.set('settings', (x) => ({ ...x, ...p }))
   const [tpl, setTpl] = useState<Template | null>(null)
   const [rollover, setRollover] = useState(false)
+  const [branding, setBranding] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   return (
@@ -34,6 +37,14 @@ export default function Settings() {
         <Card>
           <CardHeader icon="🎨" title="Branding" subtitle="Shows across the app and on your public signup page" />
           <div className="space-y-4 px-5 pb-5">
+            <div className="flex items-center gap-4 rounded-2xl bg-navy p-4 text-white">
+              <ClubLogo size={64} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-black">{settings.name}</div>
+                <div className="truncate text-xs text-white/60">{settings.website ?? 'Paste a club website to auto-brand everything'}</div>
+              </div>
+              <Button variant="accent" size="sm" onClick={() => setBranding(true)}>🎨 Customize</Button>
+            </div>
             <Field label="Club name"><Input value={settings.name} onChange={(e) => s({ name: e.target.value })} /></Field>
             <div>
               <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Mascot</span>
@@ -157,6 +168,7 @@ export default function Settings() {
 
       {tpl && <TemplateModal tpl={tpl} onClose={() => setTpl(null)} />}
       {rollover && <RolloverModal onClose={() => setRollover(false)} />}
+      <BrandWizard open={branding} onClose={() => setBranding(false)} />
     </div>
   )
 }

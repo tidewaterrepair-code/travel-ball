@@ -21,6 +21,13 @@ export interface OrgSettings {
   defaultFee: number
   contactEmail: string
   city: string
+  /** Sidebar / scoreboard background. Derived from the primary color when branding from a website. */
+  darkColor?: string
+  website?: string
+  /** data: URL of the club logo (kept small so it fits in local storage) */
+  logo?: string
+  /** data: URL of a wide hero image, e.g. the club website's share banner */
+  banner?: string
 }
 
 export interface Team {

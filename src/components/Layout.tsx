@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useData } from '../lib/store'
 import { cx } from '../lib/utils'
+import { ClubLogo } from './ClubLogo'
+import { BrandWizard } from './BrandWizard'
 
 export const NAV = [
   { to: '/', label: 'Scoreboard', emoji: '🏟️', short: 'Home' },
@@ -17,17 +19,28 @@ export const NAV = [
 const MOBILE_MAIN = ['/', '/leads', '/teams', '/schedule']
 
 export function useBrandColors() {
-  const { primaryColor, accentColor } = useData().settings
+  const { primaryColor, accentColor, darkColor, logo, name } = useData().settings
   useEffect(() => {
-    document.documentElement.style.setProperty('--brand', primaryColor)
-    document.documentElement.style.setProperty('--accent', accentColor)
-  }, [primaryColor, accentColor])
+    const root = document.documentElement.style
+    root.setProperty('--brand', primaryColor)
+    root.setProperty('--accent', accentColor)
+    root.setProperty('--navy', darkColor ?? '#0f1b33')
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', darkColor ?? '#0f1b33')
+  }, [primaryColor, accentColor, darkColor])
+  useEffect(() => {
+    document.title = `${name} · Dugout HQ`
+    const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    if (!icon) return
+    if (!icon.dataset.default) icon.dataset.default = icon.href
+    icon.href = logo ?? icon.dataset.default
+  }, [logo, name])
 }
 
 export function Layout() {
   const { settings, leads } = useData()
   const newLeads = leads.filter((l) => l.stage === 'new').length
   const [more, setMore] = useState(false)
+  const [branding, setBranding] = useState(false)
   const loc = useLocation()
   useEffect(() => {
     setMore(false)
@@ -57,7 +70,7 @@ export function Layout() {
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-navy px-3 py-5 lg:flex">
         <div className="mb-6 flex items-center gap-3 px-2">
-          <div className="spin-ball flex h-11 w-11 items-center justify-center rounded-2xl bg-brand text-2xl shadow-lg ring-2 ring-white/20">{settings.mascot}</div>
+          <ClubLogo size={48} />
           <div className="min-w-0">
             <div className="truncate text-sm font-black leading-tight text-white">{settings.name}</div>
             <div className="text-[11px] font-semibold uppercase tracking-widest text-accent">Dugout HQ</div>
@@ -69,12 +82,15 @@ export function Layout() {
           <div className="mt-1 font-black">Tryout signup page ↗</div>
           <div className="mt-1 text-xs text-white/70">New signups land in your Leads board automatically.</div>
         </a>
-        <div className="mt-3 px-2 text-[11px] text-slate-500">{settings.seasonYear} season</div>
+        <button onClick={() => setBranding(true)} className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-400 transition hover:bg-white/6 hover:text-white">
+          🎨 Customize for a club
+        </button>
+        <div className="mt-1 px-3 text-[11px] text-slate-500">{settings.seasonYear} season</div>
       </aside>
 
       {/* Mobile header */}
       <header className="sticky top-0 z-30 flex items-center gap-3 bg-navy px-4 py-3 text-white lg:hidden">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-xl">{settings.mascot}</div>
+        <ClubLogo size={38} />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-black">{settings.name}</div>
           <div className="text-[10px] font-semibold uppercase tracking-widest text-accent">Dugout HQ · {settings.seasonYear}</div>
@@ -103,9 +119,11 @@ export function Layout() {
           <div className="pop-in absolute inset-x-3 bottom-20 rounded-3xl bg-navy p-3 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="grid gap-1">{NAV.filter((n) => !MOBILE_MAIN.includes(n.to)).map(link)}</div>
             <a href="#/join" target="_blank" rel="noreferrer" className="mt-2 block rounded-xl bg-brand px-3 py-2.5 text-sm font-bold text-white">🔗 Open tryout signup page</a>
+            <button onClick={() => { setMore(false); setBranding(true) }} className="mt-2 block w-full rounded-xl bg-white/10 px-3 py-2.5 text-left text-sm font-bold text-white">🎨 Customize for a club</button>
           </div>
         </div>
       )}
+      <BrandWizard open={branding} onClose={() => setBranding(false)} />
     </div>
   )
 }

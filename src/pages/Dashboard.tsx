@@ -7,6 +7,9 @@ import { toast } from '../components/feedback'
 import { EVENT_TYPES } from '../lib/types'
 import { addDays, balance, compactMoney, daysUntil, fmtDate, fmtTime, paidTotal, payStatus, relativeDay, timeAgo, toDateISO, todayISO, uid, cx } from '../lib/utils'
 import { addTask } from '../lib/ops'
+import { teamBaseName } from '../lib/brand'
+import { ClubLogo } from '../components/ClubLogo'
+import { BrandWizard } from '../components/BrandWizard'
 
 function greeting() {
   const h = new Date().getHours()
@@ -30,6 +33,7 @@ export default function Dashboard() {
   const set = useClub((s) => s.set)
   const { settings, leads, players, registrations, events, teams, tasks, shoutouts, activity, automations } = data
   const [newTask, setNewTask] = useState('')
+  const [branding, setBranding] = useState(false)
 
   const season = registrations.filter((r) => r.season === settings.seasonYear)
   const collected = season.reduce((s, r) => s + paidTotal(r), 0)
@@ -63,14 +67,26 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Hero */}
       <div className="field-stripes relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand via-brand to-navy p-6 text-white shadow-lg sm:p-8">
+        {settings.banner && (
+          <>
+            <img src={settings.banner} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40 mix-blend-luminosity" aria-hidden />
+            <div className="absolute inset-0 bg-gradient-to-r from-navy/80 via-brand/40 to-transparent" aria-hidden />
+          </>
+        )}
         <div className="absolute -top-10 -right-10 h-48 w-48 rounded-full border-[14px] border-dashed border-white/10" aria-hidden />
-        <div className="relative flex flex-wrap items-end justify-between gap-4">
-          <div>
+        {!settings.logo && !settings.website && (
+          <button onClick={() => setBranding(true)} className="absolute top-3 right-3 z-10 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/25">🎨 Customize for a club</button>
+        )}
+        <div className={cx('relative flex flex-wrap items-end justify-between gap-4', !settings.logo && !settings.website && 'pt-6')}>
+          <div className="flex items-center gap-4">
+            <div className="hidden shrink-0 sm:block"><ClubLogo size={76} /></div>
+            <div>
             <p className="text-sm font-semibold text-white/70">{greeting()}, Coach 👋</p>
-            <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">Let’s play ball, {settings.name.split(' ')[0]}!</h1>
+            <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">Let’s play ball, {teamBaseName(settings.name).split(' ')[0]}!</h1>
             <p className="mt-2 max-w-xl text-sm text-white/80">
               {newThisWeek} new signups this week · {practicesThisWeek} practices on deck · {pastDueCount} families need a payment nudge
             </p>
+            </div>
           </div>
           {nextBig && (
             <div className="rounded-2xl bg-white/12 px-5 py-4 ring-1 ring-white/20 backdrop-blur">
@@ -255,6 +271,7 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+      <BrandWizard open={branding} onClose={() => setBranding(false)} />
     </div>
   )
 }

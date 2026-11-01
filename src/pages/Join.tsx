@@ -7,6 +7,7 @@ import { ageGroupLabel, baseballAge, fmtDate, fmtTime, recommendTeam } from '../
 import { Button, Card } from '../components/ui'
 import { celebrate } from '../components/feedback'
 import { LeadFields, emptyLead, type LeadFormValue } from './Leads'
+import { ClubLogo } from '../components/ClubLogo'
 
 export default function Join() {
   const data = useData()
@@ -22,9 +23,15 @@ export default function Join() {
   return (
     <div className="min-h-full bg-navy">
       <div className="field-stripes relative overflow-hidden bg-gradient-to-b from-brand to-navy px-4 pt-10 pb-28 text-center text-white">
+        {settings.banner && (
+          <>
+            <img src={settings.banner} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30 mix-blend-luminosity" aria-hidden />
+            <div className="absolute inset-0 bg-gradient-to-b from-brand/50 to-navy" aria-hidden />
+          </>
+        )}
         <div className="absolute top-6 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rotate-45 rounded-3xl border-4 border-white/10" aria-hidden />
         <div className="relative mx-auto max-w-2xl">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-white/15 text-4xl ring-2 ring-white/30">{settings.mascot}</div>
+          <ClubLogo size={96} className="mx-auto" />
           <p className="mt-4 text-xs font-bold uppercase tracking-[0.3em] text-accent">{settings.seasonYear} Tryouts</p>
           <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">Join {settings.name}</h1>
           <p className="mx-auto mt-3 max-w-lg text-white/80">Competitive travel baseball with great coaches, great teammates, and a whole lot of fun. Tell us about your player and we’ll get you to tryouts!</p>
