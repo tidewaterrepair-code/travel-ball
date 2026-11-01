@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-brand: var(--brand);
+  --color-accent: var(--accent);
+  --color-navy: var(--navy);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-score: "SF Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+:root {
+  --brand: #1d4ed8;
+  --accent: #f59e0b;
+  --navy: #0f1b33;
+  color-scheme: light;
+}
+
+html, body, #root { height: 100%; }
+body { @apply bg-slate-100 text-slate-900 antialiased; }
+
+/* Infield-dirt + grass stripes used on hero banners */
+.field-stripes { position: relative; isolation: isolate; }
+.field-stripes::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+  background-image: repeating-linear-gradient(90deg, rgba(255,255,255,0.06) 0 48px, rgba(255,255,255,0) 48px 96px);
+}
+
+/* Scoreboard digits */
+.score-digits { font-family: var(--font-score); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+@keyframes pop-in { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+.pop-in { animation: pop-in .18s ease-out both; }
+@keyframes slide-in { from { transform: translateX(100%); } to { transform: none; } }
+.slide-in { animation: slide-in .22s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes spin-ball { to { transform: rotate(360deg); } }
+.spin-ball:hover { animation: spin-ball .8s ease-in-out; }
+
+.scrollbar-thin::-webkit-scrollbar { height: 8px; width: 8px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+@media print { aside, nav, .no-print { display: none !important; } }
