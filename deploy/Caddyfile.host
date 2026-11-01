@@ -1,0 +1,5 @@
+# Non-Docker option: /etc/caddy/Caddyfile  (replace the domain, then: sudo systemctl reload caddy)
+app.example.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3000
+}

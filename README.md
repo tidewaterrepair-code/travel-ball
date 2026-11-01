@@ -63,21 +63,62 @@ baseball-flavored toasts ("Safe at home! 🏠"), shoutouts, and a club-colored t
 npm install
 npm run dev        # http://localhost:5173
 npm test           # business-logic tests (age groups, payments, automations, rollover)
-npm run build      # static site in dist/
+npm run build      # app in dist/ + server in dist-server/
+npm start          # production server on http://localhost:3000
 ```
 
-### Deploying
+## Run it on your VPS
 
-**Recommended: Vercel (free tier).** Import the repo at vercel.com. It detects Vite, serves `dist/`,
-and runs `api/brand.ts` as the serverless website-lookup endpoint. No configuration needed.
+Everything (the app, the website-lookup API, and HTTPS) runs on one server. Any small VPS with
+1 GB RAM running Ubuntu or Debian works.
 
-**GitHub Pages** (`.github/workflows/deploy.yml`, enable *Settings → Pages → Source: GitHub Actions*)
-hosts static files only. Everything works except the website lookup: the wizard tells you this and
-offers logo upload instead. To get website lookup on Pages, deploy `api/brand.ts` anywhere (Vercel,
-Netlify, Cloudflare) and build with `VITE_BRAND_API=https://your-function-host/api/brand`.
+### Option A: Docker (recommended)
 
-The lookup endpoint only fetches public http(s) addresses. It blocks localhost, private, and
-cloud-metadata IPs (re-checked on every redirect), caps download sizes, and times out after 9 seconds.
+1. **Point your domain at the server.** At your DNS provider, add an **A record** for
+   `app.yourdomain.com` with your VPS's IP address.
+2. **Get the code onto the VPS:**
+   ```bash
+   ssh you@your-vps
+   git clone https://github.com/tidewaterrepair-code/travel-ball.git dugout-hq
+   cd dugout-hq
+   ```
+   (Private repo? Use a GitHub personal access token as the password, or add a deploy key.)
+3. **Install and start:**
+   ```bash
+   sudo bash deploy/install.sh
+   ```
+   It installs Docker if needed, asks for your domain and email, checks your DNS, opens ports
+   80/443 in the firewall, and starts the app. Caddy gets a free HTTPS certificate automatically.
+4. Open `https://app.yourdomain.com`. Done ⚾
+
+| Task | Command |
+|---|---|
+| Update to the latest code | `bash deploy/update.sh` |
+| View logs | `docker compose logs -f` |
+| Restart | `docker compose restart` |
+| Stop | `docker compose down` |
+
+### Option B: Without Docker (Node + systemd + Caddy)
+
+```bash
+# Node 20+ and Caddy installed (https://caddyserver.com/docs/install)
+sudo git clone https://github.com/tidewaterrepair-code/travel-ball.git /opt/dugout-hq
+cd /opt/dugout-hq && sudo npm ci && sudo npm run build
+sudo cp deploy/dugout-hq.service /etc/systemd/system/ && sudo systemctl daemon-reload
+sudo systemctl enable --now dugout-hq
+sudo cp deploy/Caddyfile.host /etc/caddy/Caddyfile   # edit the domain first
+sudo systemctl reload caddy
+```
+
+### Notes
+
+- `npm start` runs the production server (`dist-server/server.mjs`, no runtime dependencies) on
+  port 3000. It serves the app and `/api/brand`, plus `/healthz` for uptime monitors.
+- The website lookup only fetches public http(s) addresses. It blocks localhost, private, and
+  cloud-metadata IPs (re-checked on every redirect), caps download sizes, times out after 9 seconds,
+  and is rate-limited per visitor (`BRAND_RATE_LIMIT`, default 20 per minute).
+- Data is still stored in each visitor's browser. Hosting it on your VPS doesn't change that yet
+  (see "Current limits" below).
 
 ## How it's built
 
@@ -88,7 +129,8 @@ cloud-metadata IPs (re-checked on every redirect), caps download sizes, and time
 - `src/lib/seed.ts`: the demo club (dates are relative to today, so it always looks live)
 - `src/lib/brand.ts`: palette extraction, theme picking with contrast fixes, team renaming (`applyBrand`)
 - `server/extract.ts` + `server/brandLookup.ts`: website → brand kit (name, logo, banner, colors), with SSRF protection
-- `api/brand.ts`: the serverless endpoint (also served by `npm run dev` / `npm run preview` via a Vite plugin)
+- `server/index.ts`: the production server for your VPS (static files + `/api/brand`)
+- `api/brand.ts`: the lookup handler (also served by `npm run dev` / `npm run preview` via a Vite plugin)
 - `src/pages/*`: one file per screen
 
 ## Current limits (and the path to production)

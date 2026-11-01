@@ -1,0 +1,28 @@
+# Non-Docker option: run with systemd behind Caddy (or nginx) on the same server.
+#   sudo cp deploy/dugout-hq.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now dugout-hq
+# Edit WorkingDirectory/User to match where you cloned the repo.
+[Unit]
+Description=Dugout HQ
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/dugout-hq
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# Only listen locally; Caddy/nginx is the public front door.
+Environment=HOST=127.0.0.1
+Environment=BRAND_RATE_LIMIT=20
+ExecStart=/usr/bin/node dist-server/server.mjs
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

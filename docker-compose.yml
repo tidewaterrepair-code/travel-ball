@@ -1,0 +1,33 @@
+# Dugout HQ on a VPS: the app + Caddy (automatic HTTPS via Let's Encrypt).
+# 1. Point your domain's DNS A record at this server.
+# 2. cp .env.example .env  and set DOMAIN (and EMAIL).
+# 3. docker compose up -d --build
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      - BRAND_RATE_LIMIT=${BRAND_RATE_LIMIT:-20}
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - DOMAIN=${DOMAIN:?Set DOMAIN in .env}
+      - EMAIL=${EMAIL:?Set EMAIL in .env (used for HTTPS certificate notices)}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
