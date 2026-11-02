@@ -14,8 +14,8 @@ docker compose version >/dev/null 2>&1 || { echo "Docker Compose plugin missing.
 
 if [[ ! -f .env ]]; then
   read -rp "Domain for the app (e.g. app.yourdomain.com): " DOMAIN
-  read -rp "Email for HTTPS certificate notices: " EMAIL
-  printf 'DOMAIN=%s\nEMAIL=%s\nBRAND_RATE_LIMIT=20\n' "$DOMAIN" "$EMAIL" > .env
+  read -rp "Your email (HTTPS notices + your admin sign-in): " EMAIL
+  printf 'DOMAIN=%s\nEMAIL=%s\nADMIN_EMAILS=%s\nRESEND_API_KEY=\nEMAIL_FROM=\nBRAND_RATE_LIMIT=20\n' "$DOMAIN" "$EMAIL" "$EMAIL" > .env
   echo "==> Wrote .env"
 fi
 # shellcheck disable=SC1091
@@ -37,5 +37,10 @@ docker compose up -d --build
 docker compose ps
 echo
 echo "✅ Dugout HQ is starting at https://$DOMAIN"
+echo "   Admin console: https://$DOMAIN/admin  (sign in as $ADMIN_EMAILS)"
+if [[ -z "${RESEND_API_KEY:-}" ]]; then
+  echo "   Email isn't set up yet, so your first sign-in link prints in the logs:"
+  echo "   docker compose logs app | grep 'Sign in:' | tail -1"
+fi
 echo "   Logs:   docker compose logs -f"
 echo "   Update: bash deploy/update.sh"

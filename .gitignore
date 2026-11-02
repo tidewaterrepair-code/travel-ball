@@ -5,3 +5,4 @@ dist
 screenshots-tmp
 *.tsbuildinfo
 dist-server
+data

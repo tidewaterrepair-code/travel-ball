@@ -1,19 +1,24 @@
 import type { Plugin } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import handler from '../api/brand.js'
+import brandHandler from '../api/brand.js'
+import { handleApi } from './api.js'
 
-/** Serves /api/brand from `npm run dev` and `npm run preview`. */
+type Next = (err?: unknown) => void
+
+/** Serves the API (sign-in, club data, brand lookup) from `npm run dev` and `npm run preview`. */
 export function brandApi(): Plugin {
-  const mount = (mw: { use: (path: string, fn: (req: IncomingMessage, res: ServerResponse) => void) => unknown }): void => {
-    mw.use('/api/brand', (req, res) => void handler(req, res))
+  const middleware = (req: IncomingMessage, res: ServerResponse, next: Next) => {
+    const path = (req.url ?? '').split('?')[0]
+    if (path === '/api/brand') return void brandHandler(req, res)
+    handleApi(req, res).then((handled) => !handled && next(), next)
   }
   return {
-    name: 'dugout-brand-api',
+    name: 'dugout-api',
     configureServer(server) {
-      mount(server.middlewares)
+      server.middlewares.use(middleware)
     },
     configurePreviewServer(server) {
-      mount(server.middlewares)
+      server.middlewares.use(middleware)
     },
   }
 }

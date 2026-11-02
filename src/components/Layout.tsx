@@ -4,6 +4,8 @@ import { useData } from '../lib/store'
 import { cx } from '../lib/utils'
 import { ClubLogo } from './ClubLogo'
 import { BrandWizard } from './BrandWizard'
+import { SyncBadge, useIsAdmin } from './SyncBadge'
+import { IS_CLUB } from '../lib/mode'
 
 export const NAV = [
   { to: '/', label: 'Scoreboard', emoji: '🏟️', short: 'Home' },
@@ -41,6 +43,7 @@ export function Layout() {
   const newLeads = leads.filter((l) => l.stage === 'new').length
   const [more, setMore] = useState(false)
   const [branding, setBranding] = useState(false)
+  const isAdmin = useIsAdmin()
   const loc = useLocation()
   useEffect(() => {
     setMore(false)
@@ -82,10 +85,12 @@ export function Layout() {
           <div className="mt-1 font-black">Tryout signup page ↗</div>
           <div className="mt-1 text-xs text-white/70">New signups land in your Leads board automatically.</div>
         </a>
-        <button onClick={() => setBranding(true)} className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-400 transition hover:bg-white/6 hover:text-white">
-          🎨 Customize for a club
-        </button>
-        <div className="mt-1 px-3 text-[11px] text-slate-500">{settings.seasonYear} season</div>
+        {isAdmin && (
+          <button onClick={() => setBranding(true)} className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-400 transition hover:bg-white/6 hover:text-white">
+            🎨 {IS_CLUB ? 'Club branding' : 'Customize for a club'}
+          </button>
+        )}
+        {IS_CLUB ? <SyncBadge /> : <div className="mt-1 px-3 text-[11px] text-slate-500">{settings.seasonYear} season</div>}
       </aside>
 
       {/* Mobile header */}
@@ -93,7 +98,7 @@ export function Layout() {
         <ClubLogo size={38} />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-black">{settings.name}</div>
-          <div className="text-[10px] font-semibold uppercase tracking-widest text-accent">Dugout HQ · {settings.seasonYear}</div>
+          {IS_CLUB ? <SyncBadge compact /> : <div className="text-[10px] font-semibold uppercase tracking-widest text-accent">Dugout HQ · {settings.seasonYear}</div>}
         </div>
       </header>
 
@@ -119,7 +124,8 @@ export function Layout() {
           <div className="pop-in absolute inset-x-3 bottom-20 rounded-3xl bg-navy p-3 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="grid gap-1">{NAV.filter((n) => !MOBILE_MAIN.includes(n.to)).map(link)}</div>
             <a href="#/join" target="_blank" rel="noreferrer" className="mt-2 block rounded-xl bg-brand px-3 py-2.5 text-sm font-bold text-white">🔗 Open tryout signup page</a>
-            <button onClick={() => { setMore(false); setBranding(true) }} className="mt-2 block w-full rounded-xl bg-white/10 px-3 py-2.5 text-left text-sm font-bold text-white">🎨 Customize for a club</button>
+            {isAdmin && <button onClick={() => { setMore(false); setBranding(true) }} className="mt-2 block w-full rounded-xl bg-white/10 px-3 py-2.5 text-left text-sm font-bold text-white">🎨 {IS_CLUB ? 'Club branding' : 'Customize for a club'}</button>}
+            {IS_CLUB && <div className="px-1"><SyncBadge /></div>}
           </div>
         </div>
       )}

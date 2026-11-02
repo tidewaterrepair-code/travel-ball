@@ -10,6 +10,7 @@ import { addTask } from '../lib/ops'
 import { teamBaseName } from '../lib/brand'
 import { ClubLogo } from '../components/ClubLogo'
 import { BrandWizard } from '../components/BrandWizard'
+import { IS_CLUB } from '../lib/mode'
 
 function greeting() {
   const h = new Date().getHours()
@@ -74,10 +75,10 @@ export default function Dashboard() {
           </>
         )}
         <div className="absolute -top-10 -right-10 h-48 w-48 rounded-full border-[14px] border-dashed border-white/10" aria-hidden />
-        {!settings.logo && !settings.website && (
+        {!IS_CLUB && !settings.logo && !settings.website && (
           <button onClick={() => setBranding(true)} className="absolute top-3 right-3 z-10 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/25">🎨 Customize for a club</button>
         )}
-        <div className={cx('relative flex flex-wrap items-end justify-between gap-4', !settings.logo && !settings.website && 'pt-6')}>
+        <div className={cx('relative flex flex-wrap items-end justify-between gap-4', !IS_CLUB && !settings.logo && !settings.website && 'pt-6')}>
           <div className="flex items-center gap-4">
             <div className="hidden shrink-0 sm:block"><ClubLogo size={76} /></div>
             <div>

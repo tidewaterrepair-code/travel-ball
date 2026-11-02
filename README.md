@@ -67,6 +67,24 @@ npm run build      # app in dist/ + server in dist-server/
 npm start          # production server on http://localhost:3000
 ```
 
+## Accounts, clubs and roles
+
+| Address | What it is |
+|---|---|
+| `/` | The **demo club + pitch tool** (data stays in the visitor's browser) |
+| `/admin` | **Your console**: every club on the platform, add new clubs (people listed in `ADMIN_EMAILS`) |
+| `/login` | Email sign-in (one-time links, no passwords) |
+| `/c/<club>/` | A **real club**, saved on the server and shared by its staff |
+| `/c/<club>/#/join` | That club's **public tryout form** (no login; signups land on their Leads board) |
+
+- **Admins** can do everything, including settings, branding, dues and payments, and inviting staff.
+- **Coaches** run teams, schedule, leads and messages, but the server refuses changes to settings,
+  templates, automations, fees or payments.
+- Changes save automatically in the background. If two people save at once, nothing is lost:
+  the second save is replayed on top of the first. Other staff see changes within about 15 seconds.
+- The database is one SQLite file in the `app_data` volume, backed up daily (14 kept) to
+  `/app/data/backups`. Copy one off the server with `bash deploy/backup-offsite.sh you@vps ~/backups`.
+
 ## Run it on your VPS
 
 Everything (the app, the website-lookup API, and HTTPS) runs on one server. Any small VPS with
@@ -89,7 +107,19 @@ Everything (the app, the website-lookup API, and HTTPS) runs on one server. Any 
    ```
    It installs Docker if needed, asks for your domain and email, checks your DNS, opens ports
    80/443 in the firewall, and starts the app. Caddy gets a free HTTPS certificate automatically.
-4. Open `https://app.yourdomain.com`. Done ⚾
+4. Open `https://app.yourdomain.com/admin` and sign in with the email you entered. Until email
+   delivery is set up, your sign-in link prints in the logs:
+   `docker compose logs app | grep 'Sign in:' | tail -1`
+5. **Add your first club** in the admin console. You get the owner's sign-in link to text them.
+
+### Optional: real email (recommended before your first paying club)
+
+Create a free [Resend](https://resend.com) account, verify your domain, and add to `.env`:
+```
+RESEND_API_KEY=re_...
+EMAIL_FROM=Dugout HQ <hello@yourdomain.com>
+```
+Then `docker compose up -d`. Sign-in links and staff invites are now emailed automatically.
 
 | Task | Command |
 |---|---|
@@ -117,8 +147,6 @@ sudo systemctl reload caddy
 - The website lookup only fetches public http(s) addresses. It blocks localhost, private, and
   cloud-metadata IPs (re-checked on every redirect), caps download sizes, times out after 9 seconds,
   and is rate-limited per visitor (`BRAND_RATE_LIMIT`, default 20 per minute).
-- Data is still stored in each visitor's browser. Hosting it on your VPS doesn't change that yet
-  (see "Current limits" below).
 
 ## How it's built
 
@@ -129,21 +157,16 @@ sudo systemctl reload caddy
 - `src/lib/seed.ts`: the demo club (dates are relative to today, so it always looks live)
 - `src/lib/brand.ts`: palette extraction, theme picking with contrast fixes, team renaming (`applyBrand`)
 - `server/extract.ts` + `server/brandLookup.ts`: website → brand kit (name, logo, banner, colors), with SSRF protection
-- `server/index.ts`: the production server for your VPS (static files + `/api/brand`)
+- `server/index.ts`: the production server for your VPS (static files, API, daily backups)
+- `server/api.ts` + `server/db.ts`: sign-in, clubs, roles, conflict-safe saving (SQLite), public tryout signups; tested in `server/api.test.ts`
+- `src/lib/sync.ts`: background saving with conflict replay and live updates
 - `api/brand.ts`: the lookup handler (also served by `npm run dev` / `npm run preview` via a Vite plugin)
 - `src/pages/*`: one file per screen
 
-## Current limits (and the path to production)
+## Roadmap to revenue
 
-This version is **local-first**: each browser keeps its own copy of the data (localStorage), and
-**emails are personalized and logged, not delivered**. That's ideal for demos and pilots. Before
-charging a club for production use, add:
-
-1. **Hosted database + logins.** Move `ClubData` to Supabase or Postgres (the shapes in
-   `types.ts` map 1:1 to tables) and add staff accounts and roles (admin, coach, treasurer).
-2. **Email/SMS delivery.** Send the messages `ops.ts` already produces through Resend, Postmark,
-   SendGrid, or Twilio.
-3. **Online payments.** Stripe Checkout or Payment Links for each installment, with a webhook
-   that calls `recordPayment`.
-4. **Parent portal.** A read-only team page for schedules, RSVPs, and balances.
-5. **Data import.** A CSV importer for clubs moving off spreadsheets or other platforms.
+1. ✅ Shared data, staff sign-in and a space per club
+2. **Online payments (Stripe Connect):** families pay dues and installments online, with autopay; the platform earns a fee per payment
+3. **Real email and text delivery** for automations and announcements
+4. **Parent app:** schedule, RSVPs and payments on parents' phones
+5. **Import** from spreadsheets and other platforms

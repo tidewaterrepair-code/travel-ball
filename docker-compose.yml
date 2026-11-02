@@ -7,7 +7,14 @@ services:
     build: .
     restart: unless-stopped
     environment:
+      - APP_URL=https://${DOMAIN:?Set DOMAIN in .env}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:?Set ADMIN_EMAILS in .env (your email, for the admin console)}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM:-}
       - BRAND_RATE_LIMIT=${BRAND_RATE_LIMIT:-20}
+    volumes:
+      # The database and its daily backups live here and survive rebuilds.
+      - app_data:/app/data
     expose:
       - "3000"
 
@@ -29,5 +36,6 @@ services:
       - caddy_config:/config
 
 volumes:
+  app_data:
   caddy_data:
   caddy_config:

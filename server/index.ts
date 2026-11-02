@@ -6,6 +6,15 @@ import { createReadStream } from 'node:fs'
 import { extname, join, normalize, resolve, sep } from 'node:path'
 import { createGzip } from 'node:zlib'
 import { handleBrandRequest } from './brandLookup.js'
+import { handleApi } from './api.js'
+import { backup, getDb, pruneExpired } from './db.js'
+import { SECURITY_HEADERS, clientIp, rateLimit, send } from './http.js'
+
+// `node server.mjs backup` makes a backup and exits (handy for cron).
+if (process.argv[2] === 'backup') {
+  console.log('Backup written:', backup())
+  process.exit(0)
+}
 
 const PORT = Number(process.env.PORT ?? 3000)
 const HOST = process.env.HOST ?? '0.0.0.0'
@@ -19,43 +28,6 @@ const MIME: Record<string, string> = {
   '.ico': 'image/x-icon', '.webp': 'image/webp', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.webmanifest': 'application/manifest+json',
 }
 const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.json', '.svg', '.txt'])
-
-const SECURITY_HEADERS: Record<string, string> = {
-  'x-content-type-options': 'nosniff',
-  'referrer-policy': 'strict-origin-when-cross-origin',
-  'x-frame-options': 'SAMEORIGIN',
-  'permissions-policy': 'camera=(), microphone=(), geolocation=()',
-}
-
-// ---------------------------------------------------------------- rate limit
-const hits = new Map<string, { count: number; reset: number }>()
-setInterval(() => {
-  const now = Date.now()
-  for (const [ip, h] of hits) if (h.reset < now) hits.delete(ip)
-}, 60_000).unref()
-
-function clientIp(req: IncomingMessage) {
-  // Behind Caddy/nginx on the same box the real address is in X-Forwarded-For.
-  const fwd = process.env.TRUST_PROXY !== '0' ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : ''
-  return fwd || req.socket.remoteAddress || 'unknown'
-}
-
-function allow(ip: string) {
-  const now = Date.now()
-  const h = hits.get(ip)
-  if (!h || h.reset < now) {
-    hits.set(ip, { count: 1, reset: now + 60_000 })
-    return true
-  }
-  h.count++
-  return h.count <= LOOKUP_LIMIT
-}
-
-// ---------------------------------------------------------------- handlers
-function send(res: ServerResponse, status: number, body: string, type = 'text/plain; charset=utf-8', extra: Record<string, string> = {}) {
-  res.writeHead(status, { ...SECURITY_HEADERS, 'content-type': type, ...extra })
-  res.end(body)
-}
 
 async function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string) {
   let rel: string
@@ -108,13 +80,14 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: 
 
 async function handle(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost')
+  if (await handleApi(req, res)) return
   if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed', undefined, { allow: 'GET, HEAD' })
 
   if (url.pathname === '/healthz') return send(res, 200, JSON.stringify({ ok: true }), 'application/json', { 'cache-control': 'no-store' })
 
   if (url.pathname === '/api/brand') {
     const ip = clientIp(req)
-    if (!allow(ip)) return send(res, 429, JSON.stringify({ error: 'Too many lookups. Wait a minute and try again.' }), 'application/json', { 'retry-after': '60' })
+    if (!rateLimit(`brand:${ip}`, LOOKUP_LIMIT)) return send(res, 429, JSON.stringify({ error: 'Too many lookups. Wait a minute and try again.' }), 'application/json', { 'retry-after': '60' })
     const [status, body] = await handleBrandRequest(url.searchParams.get('url'))
     console.log(`[brand] ${ip} ${status} ${url.searchParams.get('url')}`)
     return send(res, status, JSON.stringify(body), 'application/json', { 'cache-control': status === 200 ? 'private, max-age=3600' : 'no-store' })
@@ -132,6 +105,19 @@ const server = createServer((req, res) => {
 })
 server.requestTimeout = 30_000
 server.headersTimeout = 15_000
+
+// Database: open (runs migrations), then back up daily and clear expired sessions.
+getDb()
+const daily = () => {
+  try {
+    pruneExpired()
+    console.log('[backup]', backup(Number(process.env.BACKUP_KEEP ?? 14)))
+  } catch (e) {
+    console.error('[backup] failed', e)
+  }
+}
+setTimeout(daily, 60_000).unref()
+setInterval(daily, 24 * 60 * 60_000).unref()
 
 readFile(join(ROOT, 'index.html'))
   .then(() => console.log(`Serving ${ROOT}`))

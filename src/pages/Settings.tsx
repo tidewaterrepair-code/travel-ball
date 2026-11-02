@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useClub, useData } from '../lib/store'
 import type { ClubData, OrgSettings, Template } from '../lib/types'
 import { rolloverSeason } from '../lib/ops'
@@ -7,6 +7,10 @@ import { Badge, Button, Card, CardHeader, Field, Input, Modal, PageHeader, Selec
 import { celebrate, toast } from '../components/feedback'
 import { BrandWizard } from '../components/BrandWizard'
 import { ClubLogo } from '../components/ClubLogo'
+import { IS_CLUB, CLUB_SLUG } from '../lib/mode'
+import { useIsAdmin } from '../components/SyncBadge'
+import { inviteMember, listMembers, removeMember, type Member } from '../lib/session'
+import { buildEmpty } from '../lib/seed'
 
 const MASCOTS = ['⚡', '⚾', '🦅', '🐻', '🦈', '🐍', '🔥', '🌪️', '🐝', '🦂', '🐺', '🏴‍☠️', '🦬', '🐊', '🚀', '⭐']
 const PALETTES: [string, string, string][] = [
@@ -28,12 +32,15 @@ export default function Settings() {
   const [tpl, setTpl] = useState<Template | null>(null)
   const [rollover, setRollover] = useState(false)
   const [branding, setBranding] = useState(false)
+  const isAdmin = useIsAdmin()
   const fileRef = useRef<HTMLInputElement>(null)
 
   return (
     <div>
       <PageHeader emoji="⚙️" title="Club Settings" subtitle="Make it yours — colors, season rules, automations, and templates." />
-      <div className="grid gap-6 lg:grid-cols-2">
+      {!isAdmin && <div className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">🔒 You’re signed in as a coach. Only club admins can change these settings.</div>}
+      {IS_CLUB && isAdmin && <StaffCard />}
+      <fieldset disabled={!isAdmin} className="grid gap-6 lg:grid-cols-2 disabled:opacity-60">
         <Card>
           <CardHeader icon="🎨" title="Branding" subtitle="Shows across the app and on your public signup page" />
           <div className="space-y-4 px-5 pb-5">
@@ -136,7 +143,7 @@ export default function Settings() {
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader icon="💾" title="Your data" subtitle="Data is saved in this browser. Download a backup any time." />
+          <CardHeader icon="💾" title="Your data" subtitle={IS_CLUB ? 'Saved securely on the server and backed up daily. Download your own copy any time.' : 'Data is saved in this browser. Download a backup any time.'} />
           <div className="flex flex-wrap gap-2 px-5 pb-5">
             <Button variant="secondary" onClick={() => download(`dugout-hq-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2), 'application/json')}>⬇️ Download backup</Button>
             <Button variant="secondary" onClick={() => fileRef.current?.click()}>⬆️ Restore backup</Button>
@@ -160,11 +167,26 @@ export default function Settings() {
               }}
             />
             <span className="flex-1" />
-            <Button variant="ghost" onClick={() => { if (confirm('Reload the demo club? This replaces everything currently in the app.')) { store.resetDemo(); toast('🔄', 'Demo club reloaded') } }}>Reload demo data</Button>
-            <Button variant="danger" onClick={() => { if (confirm('Start a brand-new empty club? This erases all current data in this browser.')) { store.startFresh(); toast('⚾', 'Fresh start!', 'Add your teams to begin.') } }}>Start a fresh club</Button>
+            {IS_CLUB ? (
+              <Button
+                variant="danger"
+                onClick={() => {
+                  if (!confirm('Clear ALL players, families, leads, schedule and payments for this club? Settings, colors and templates stay. Download a backup first if you might need it.')) return
+                  store.apply((d) => ({ ...buildEmpty(), settings: d.settings, templates: d.templates, automations: d.automations, activity: [{ id: `act_${Date.now()}`, at: new Date().toISOString(), emoji: '🧹', text: 'Club data cleared, ready for the real season' }] }))
+                  toast('🧹', 'Sample data cleared', 'Add your teams to begin.')
+                }}
+              >
+                Clear sample data
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" onClick={() => { if (confirm('Reload the demo club? This replaces everything currently in the app.')) { store.resetDemo(); toast('🔄', 'Demo club reloaded') } }}>Reload demo data</Button>
+                <Button variant="danger" onClick={() => { if (confirm('Start a brand-new empty club? This erases all current data in this browser.')) { store.startFresh(); toast('⚾', 'Fresh start!', 'Add your teams to begin.') } }}>Start a fresh club</Button>
+              </>
+            )}
           </div>
         </Card>
-      </div>
+      </fieldset>
 
       {tpl && <TemplateModal tpl={tpl} onClose={() => setTpl(null)} />}
       {rollover && <RolloverModal onClose={() => setRollover(false)} />}
@@ -243,5 +265,91 @@ function RolloverModal({ onClose }: { onClose: () => void }) {
         </Button>
       </div>
     </Modal>
+  )
+}
+
+function StaffCard() {
+  const [members, setMembers] = useState<Member[] | null>(null)
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<'coach' | 'admin'>('coach')
+  const [busy, setBusy] = useState(false)
+  const [lastLink, setLastLink] = useState<{ email: string; link: string | null; emailed: boolean } | null>(null)
+  const refresh = () => listMembers(CLUB_SLUG!).then((r) => setMembers(r.members)).catch(() => setMembers([]))
+  useEffect(() => {
+    refresh()
+  }, [])
+
+  return (
+    <Card className="mb-6">
+      <CardHeader icon="👥" title="Staff & sign-in" subtitle="Everyone who can sign in to this club. Coaches can run teams; only admins handle settings and money." />
+      <div className="grid gap-6 px-5 pb-5 lg:grid-cols-2">
+        <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200">
+          {(members ?? []).map((m) => (
+            <li key={m.id} className="flex items-center gap-3 px-3 py-2.5">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">{m.email}</div>
+                <div className="text-xs text-slate-500">{m.last_login ? `Last signed in ${m.last_login.slice(0, 10)}` : 'Hasn’t signed in yet'}</div>
+              </div>
+              <Badge tone={m.role === 'admin' ? 'violet' : 'blue'}>{m.role}</Badge>
+              <button
+                className="text-xs text-slate-400 hover:text-red-600"
+                aria-label={`Remove ${m.email}`}
+                onClick={async () => {
+                  if (!confirm(`Remove ${m.email} from this club?`)) return
+                  try {
+                    await removeMember(CLUB_SLUG!, m.id)
+                    toast('👋', 'Removed', m.email)
+                    refresh()
+                  } catch (e) {
+                    toast('⚠️', 'Couldn’t remove', e instanceof Error ? e.message : undefined)
+                  }
+                }}
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+          {members === null && <li className="px-3 py-3 text-sm text-slate-500">Loading…</li>}
+        </ul>
+        <form
+          className="space-y-3"
+          onSubmit={async (e) => {
+            e.preventDefault()
+            setBusy(true)
+            try {
+              const r = await inviteMember(CLUB_SLUG!, email.trim(), role)
+              setLastLink({ email: email.trim(), link: r.link, emailed: r.emailed })
+              toast('✉️', 'Invite ready', r.emailed ? `Emailed ${email}` : 'Copy the sign-in link below and send it to them.')
+              setEmail('')
+              refresh()
+            } catch (err) {
+              toast('⚠️', 'Couldn’t invite', err instanceof Error ? err.message : undefined)
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          <Field label="Invite by email"><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="coach@example.com" /></Field>
+          <div className="flex gap-2">
+            <Select value={role} onChange={(e) => setRole(e.target.value as 'coach' | 'admin')} aria-label="Role">
+              <option value="coach">Coach: teams, schedule, leads, messages</option>
+              <option value="admin">Admin: everything, including money & settings</option>
+            </Select>
+            <Button type="submit" disabled={busy} className="shrink-0">Invite</Button>
+          </div>
+          {lastLink && (
+            <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600 ring-1 ring-slate-200">
+              {lastLink.emailed ? <>We emailed <b>{lastLink.email}</b> a sign-in link.</> : <>Email isn’t set up on this server, so send <b>{lastLink.email}</b> this sign-in link (works once, lasts 7 days):</>}
+              {lastLink.link ? (
+                <div className="mt-2 flex gap-2">
+                  <Input readOnly value={lastLink.link} onFocus={(e) => e.target.select()} aria-label="Sign-in link" />
+                  <Button size="sm" variant="secondary" onClick={() => { navigator.clipboard?.writeText(lastLink.link!); toast('📋', 'Link copied') }}>Copy</Button>
+                </div>
+              ) : !lastLink.emailed ? <p className="mt-1">They already have a Dugout HQ account, so they can sign in at <b>{location.origin}/login</b> with their email.</p> : null}
+            </div>
+          )}
+        </form>
+      </div>
+    </Card>
   )
 }

@@ -8,12 +8,16 @@ import { Button, Card } from '../components/ui'
 import { celebrate } from '../components/feedback'
 import { LeadFields, emptyLead, type LeadFormValue } from './Leads'
 import { ClubLogo } from '../components/ClubLogo'
+import { CLUB_SLUG, IS_CLUB } from '../lib/mode'
+import { submitPublicLead } from '../lib/session'
 
 export default function Join() {
   const data = useData()
   const apply = useClub((s) => s.apply)
   const [v, setV] = useState<LeadFormValue>(emptyLead)
   const [done, setDone] = useState<LeadFormValue | null>(null)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const { settings, teams, events } = data
   const tryouts = events.filter((e) => e.type === 'tryout' && new Date(e.end) >= new Date()).sort((a, b) => a.start.localeCompare(b.start))
 
@@ -68,22 +72,37 @@ export default function Join() {
             <h2 className="text-xl font-black">⚾ Tryout interest form</h2>
             <p className="mb-5 text-sm text-slate-500">Takes about a minute. No commitment.</p>
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault()
-                apply((d) => addLead(d, { ...v, stage: 'new' }).data)
+                if (IS_CLUB) {
+                  setSending(true)
+                  setError(null)
+                  try {
+                    const honeypot = (e.currentTarget.elements.namedItem('website') as HTMLInputElement | null)?.value
+                    await submitPublicLead(CLUB_SLUG!, { ...v, website: honeypot })
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+                    return
+                  } finally {
+                    setSending(false)
+                  }
+                } else apply((d) => addLead(d, { ...v, stage: 'new' }).data)
                 setDone(v)
                 celebrate()
                 window.scrollTo({ top: 0, behavior: 'smooth' })
               }}
             >
               <LeadFields v={v} onChange={setV} />
-              <Button type="submit" size="lg" className="mt-6 w-full">Count me in! ⚾</Button>
+              {/* Hidden from people; bots fill it in and get ignored. */}
+              <input name="website" tabIndex={-1} autoComplete="off" aria-hidden className="absolute -left-[9999px] h-0 w-0 opacity-0" />
+              {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">⚠️ {error}</p>}
+              <Button type="submit" size="lg" className="mt-6 w-full" disabled={sending}>{sending ? 'Sending…' : 'Count me in! ⚾'}</Button>
               <p className="mt-3 text-center text-xs text-slate-400">Questions? Email <a className="underline" href={`mailto:${settings.contactEmail}`}>{settings.contactEmail}</a></p>
             </form>
           </Card>
         )}
         <p className="mt-6 text-center text-xs text-white/40">
-          Powered by Dugout HQ · <Link to="/" className="underline">Staff login</Link>
+          Powered by Dugout HQ · {IS_CLUB ? <a href="/login" className="underline">Staff sign-in</a> : <Link to="/" className="underline">Staff login</Link>}
         </p>
       </div>
     </div>

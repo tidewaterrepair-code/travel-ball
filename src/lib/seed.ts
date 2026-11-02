@@ -2,8 +2,8 @@
 import type {
   Automation, ClubData, ClubEvent, Family, Lead, LeadSource, LeadStage, Player, Position,
   Registration, Team, Template, Task, PaymentMethod, PaymentPlan, RSVP,
-} from './types'
-import { addDays, addMonths, amountDue, installmentSchedule, toDateISO, uid } from './utils'
+} from './types.js'
+import { addDays, addMonths, amountDue, installmentSchedule, toDateISO, uid } from './utils.js'
 
 function rng(seed: number) {
   let s = seed >>> 0

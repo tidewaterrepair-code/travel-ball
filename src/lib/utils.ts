@@ -1,5 +1,5 @@
-import type { ClubData, Family, OrgSettings, Player, Registration, Team, PaymentPlan } from './types'
-import { PAYMENT_PLANS } from './types'
+import type { ClubData, Family, OrgSettings, Player, Registration, Team, PaymentPlan } from './types.js'
+import { PAYMENT_PLANS } from './types.js'
 
 export const uid = (prefix = 'id') =>
   `${prefix}_${Math.random().toString(36).slice(2, 9)}${Date.now().toString(36).slice(-3)}`

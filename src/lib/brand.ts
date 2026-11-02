@@ -1,5 +1,5 @@
 // Brand kit → app theme. Color math is pure (unit-tested); canvas helpers run in the browser.
-import type { ClubData, OrgSettings } from './types'
+import type { ClubData, OrgSettings } from './types.js'
 
 // ------------------------------------------------------------------ color math
 

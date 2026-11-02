@@ -5,6 +5,7 @@ import { recordPayment } from '../lib/ops'
 import { amountDue, balance, cx, download, fmtDate, installmentSchedule, mergeTemplate, money, nextInstallment, paidTotal, pastDue, payStatus, planFor, playerContext, toCSV, todayISO, uid } from '../lib/utils'
 import { Badge, Button, Card, EmptyState, Field, Input, Meter, Modal, PageHeader, Select, Tabs } from '../components/ui'
 import { celebrate, cheer, toast } from '../components/feedback'
+import { useIsAdmin } from '../components/SyncBadge'
 
 type Filter = 'all' | 'pastdue' | 'ontrack' | 'paid'
 
@@ -141,6 +142,7 @@ function RegistrationModal({ reg, onClose }: { reg: Registration; onClose: () =>
   const p = data.players.find((x) => x.id === reg.playerId)!
   const f = data.families.find((x) => x.id === p.familyId)!
   const nxt = nextInstallment(reg)
+  const isAdmin = useIsAdmin()
   const [amount, setAmount] = useState(String(nxt?.amount ?? balance(reg)))
   const [method, setMethod] = useState<PaymentMethod>('Card')
   const [date, setDate] = useState(todayISO())
@@ -158,7 +160,8 @@ function RegistrationModal({ reg, onClose }: { reg: Registration; onClose: () =>
             <div className="score-digits text-4xl font-black text-accent">{money(balance(reg))}</div>
             <div className="text-xs text-slate-300">{money(paid)} paid of {money(amountDue(reg))} · {f.parentName}</div>
           </div>
-          {balance(reg) > 0 && (
+          {!isAdmin && <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">🔒 Only club admins can record payments or change fees.</p>}
+          {isAdmin && balance(reg) > 0 && (
             <form
               className="space-y-3 rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200"
               onSubmit={(e) => {
@@ -188,7 +191,7 @@ function RegistrationModal({ reg, onClose }: { reg: Registration; onClose: () =>
               </div>
             </form>
           )}
-          <div className="grid grid-cols-2 gap-2">
+          <fieldset disabled={!isAdmin} className="grid grid-cols-2 gap-2 disabled:opacity-60">
             <Field label="Payment plan">
               <Select value={reg.plan} onChange={(e) => patch({ plan: e.target.value as PaymentPlan })}>
                 {PAYMENT_PLANS.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
@@ -198,7 +201,7 @@ function RegistrationModal({ reg, onClose }: { reg: Registration; onClose: () =>
             <Field label="Season fee"><Input type="number" defaultValue={reg.fee} onBlur={(e) => patch({ fee: Number(e.target.value) || 0 })} /></Field>
             <Field label="Discount"><Input type="number" defaultValue={reg.discount} onBlur={(e) => patch({ discount: Number(e.target.value) || 0 })} /></Field>
             <Field label="Fundraising credit" className="col-span-2" hint="Credits from car washes, raffles, etc. reduce what the family owes."><Input type="number" defaultValue={reg.fundraisingCredit} onBlur={(e) => patch({ fundraisingCredit: Number(e.target.value) || 0 })} /></Field>
-          </div>
+          </fieldset>
         </div>
         <div className="space-y-4">
           <div>
@@ -226,7 +229,7 @@ function RegistrationModal({ reg, onClose }: { reg: Registration; onClose: () =>
                     <span>{fmtDate(x.date, { month: 'short', day: 'numeric', year: 'numeric' })} · <span className="text-slate-500">{x.method}</span></span>
                     <span className="flex items-center gap-2">
                       <b className="tabular-nums">{money(x.amount, true)}</b>
-                      <button aria-label="Remove payment" className="text-slate-300 hover:text-red-500" onClick={() => confirm('Remove this payment?') && patch({ payments: reg.payments.filter((y) => y.id !== x.id) })}>✕</button>
+                      {isAdmin && <button aria-label="Remove payment" className="text-slate-300 hover:text-red-500" onClick={() => confirm('Remove this payment?') && patch({ payments: reg.payments.filter((y) => y.id !== x.id) })}>✕</button>}
                     </span>
                   </li>
                 ))}

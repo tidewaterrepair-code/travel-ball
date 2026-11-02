@@ -8,12 +8,13 @@ RUN npm test && npm run build
 
 # ---- run: just Node + the built files (no node_modules needed)
 FROM node:22-alpine
-ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0
+ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0 DATA_DIR=/app/data
 WORKDIR /app
+RUN mkdir -p /app/data && chown node:node /app/data
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/dist-server ./dist-server
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -qO- http://127.0.0.1:3000/healthz || exit 1
-CMD ["node", "dist-server/server.mjs"]
+CMD ["node", "--disable-warning=ExperimentalWarning", "dist-server/server.mjs"]

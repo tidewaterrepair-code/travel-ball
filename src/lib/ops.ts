@@ -2,11 +2,11 @@
 // Automations live here so they behave identically in the UI and in tests.
 import type {
   Audience, AutomationId, ClubData, Family, Lead, LeadStage, Message, Payment, Player, Registration, Task,
-} from './types'
+} from './types.js'
 import {
   ageGroupLabel, baseballAge, mergeTemplate, playerContext, recommendTeam, uid, toDateISO, addDays,
   type MergeContext, balance,
-} from './utils'
+} from './utils.js'
 
 const clone = <T,>(x: T): T => structuredClone(x)
 

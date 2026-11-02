@@ -1,7 +1,9 @@
-import { create } from 'zustand'
+import { create, type StateCreator } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ClubData } from './types'
 import { buildEmpty, buildSeed } from './seed'
+import { IS_CLUB } from './mode'
+import { bindStore, enqueue } from './sync'
 
 interface Store {
   data: ClubData
@@ -14,18 +16,34 @@ interface Store {
   startFresh: () => void
 }
 
-export const useClub = create<Store>()(
-  persist(
-    (set) => ({
-      data: buildSeed(),
-      apply: (fn) => set((s) => ({ data: fn(s.data) })),
-      set: (key, updater) => set((s) => ({ data: { ...s.data, [key]: updater(s.data[key]) } })),
-      replace: (d) => set({ data: d }),
-      resetDemo: () => set({ data: buildSeed() }),
-      startFresh: () => set({ data: buildEmpty() }),
-    }),
-    { name: 'dugout-hq-v1', version: 1 },
-  ),
-)
+const base: StateCreator<Store> = (set, get) => {
+  // In a real club every change is also queued for the server. Because changes are
+  // pure functions, they can be replayed on top of someone else's newer save.
+  const apply = (fn: (d: ClubData) => ClubData) => {
+    set({ data: fn(get().data) })
+    if (IS_CLUB) enqueue(fn)
+  }
+  return {
+    data: IS_CLUB ? buildEmpty() : buildSeed(),
+    apply,
+    set: (key, updater) => apply((d) => ({ ...d, [key]: updater(d[key]) })),
+    replace: (d) => apply(() => d),
+    resetDemo: () => set({ data: buildSeed() }),
+    startFresh: () => set({ data: buildEmpty() }),
+  }
+}
+
+// The demo keeps its data in this browser; real clubs keep it on the server.
+export const useClub = IS_CLUB
+  ? create<Store>()(base)
+  : create<Store>()(persist(base as never, { name: 'dugout-hq-v1', version: 1 }) as unknown as StateCreator<Store>)
 
 export const useData = () => useClub((s) => s.data)
+
+if (IS_CLUB) {
+  bindStore(
+    () => useClub.getState().data,
+    (d) => useClub.setState({ data: d }),
+    (message) => window.dispatchEvent(new CustomEvent('dugout:rejected', { detail: message })),
+  )
+}
